@@ -2,130 +2,161 @@ import uuid
 import json
 
 from datetime import datetime
+from typing import List
 
 
 TASK_FILE = 'tasks.json'
 
 
-def load_tasks():
-    """Загрузка всех задач."""
-    try:
-        with open(TASK_FILE, 'r') as F:
-            return json.load(F)
-    except FileNotFoundError:
-        return []
+class Task:
+    def __init__(
+            self,
+            title: str,
+            description: str,
+            category: str,
+            due_date: str,
+            priority: str,
+            id: str = None,
+            status: str = 'Не выполнена'
+            ):
+        self.id = id if id else uuid.uuid4().hex
+        self.title = title
+        self.description = description
+        self.category = category
+        self.due_date = datetime.strptime(due_date, "%d.%m.%Y")
+        try:
+            datetime.strptime(due_date, "%d.%m.%Y")
+            self.due_date = due_date
+        except ValueError:
+            raise ValueError(
+                "Неверный формат даты. Ожидаемый формат: ДД.ММ.ГГГГ"
+            )
+        self.priority = priority
+        self.status = status
+
+    def __str__(self):
+        return f"ID: {self.id}, Название: {self.title}, Статус: {self.status}"
+
+    def update(self,
+               title: str = None,
+               description: str = None,
+               category: str = None,
+               due_date: str = None,
+               priority: str = None
+               ):
+        """Метод для обновления атрибутов задачи."""
+        if title:
+            self.title = title
+        if description:
+            self.description = description
+        if category:
+            self.category = category
+        if due_date:
+            self.due_date = datetime.strptime(due_date, "%d.%m.%Y")
+        if priority:
+            self.priority = priority
 
 
-def save_tasks(tasks):
-    """Сохранение задач."""
-    with open(TASK_FILE, 'w') as F:
-        return json.dump(tasks, F, indent=4)
+class TaskManager:
+    def __init__(self):
+        self.tasks = self.load_tasks()
 
+    def load_tasks(self) -> List[Task]:
+        """Загрузка всех задач."""
+        try:
+            with open(TASK_FILE, 'r') as file:
+                data = json.load(file)
+                return [Task(**task_data) for task_data in data]
+        except FileNotFoundError:
+            return []
 
-def add_tasks(title, description, category, due_date, priority):
-    """Добавление задач."""
-    if not title or not description or not category or not due_date or not priority:
-        print('Ошибка: Все поля должны быть заполнены!')
-        return
-    try:
-        due_date = datetime.strptime(due_date, "%d.%m.%Y")
-    except ValueError:
-        print('Ошибка: Не верный формат даты!')
-        return
-    tasks = load_tasks()
+    def save_tasks(self) -> None:
+        """Сохранение задач."""
+        with open(TASK_FILE, 'w') as file:
+            json.dump([task.__dict__ for task in self.tasks], file, indent=4)
 
-    new_task = {
-        'id': uuid.uuid4().hex,
-        'title': title,
-        'description': description,
-        'category': category,
-        'due_date': due_date.strftime("%d.%m.%Y"),
-        'priority': priority,
-        'status': 'Не выполнена'
-    }
+    def add_tasks(
+            self,
+            title: str,
+            description: str,
+            category: str,
+            due_date: str,
+            priority: str
+    ) -> None:
+        """Добавление задачи."""
+        task = Task(title, description, category, due_date, priority)
+        self.tasks.append(task)
+        self.save_tasks()
+        print(f"Задача '{task.title}' успешно добавлена!")
 
-    tasks.append(new_task)
-    save_tasks(tasks)
+    def view_tasks(self) -> None:
+        """Просмотр всех задач."""
+        for task in self.tasks:
+            print(task)
 
-    print(f'Задача {title} успешно добавлена!')
-
-
-def view_tasks():
-    """Просмотр всех задач."""
-    tasks = load_tasks()
-    for task in tasks:
-        print(
-            f"ID: {task['id']}, Название: {task['title']}, Статус: {task['status']}")
-
-
-def view_tasks_category(category):
-    """Просмотр задач по категориям."""
-    tasks = load_tasks()
-    filtered_tasks = [task for task in tasks if task['category'] == category]
-    if filtered_tasks:
-        for task in filtered_tasks:
-            print(f"ID: {task['id']}, Название: {task['title']}, Статус: {task['status']}")
-    else:
-        print(f"Задачи в категории '{category}' не найдены!")
-
-
-def edit_tasks(task_id, new_data):
-    """Поиск по ID и обновление задач."""
-    tasks = load_tasks()
-    for task in tasks:
-        if task['id'] == task_id:
-            task.update(new_data)
-            save_tasks(tasks)
-            print(f'Задача с ID {task_id} обновлена!')
-    print(f'Задача с ID {task_id} не найдена!')
-
-
-def delete_tasks_by_id(task_id):
-    """Удаление задач по ID."""
-    tasks = load_tasks()
-    for task in tasks:
-        if task['id'] == task_id:
-            tasks.remove(task)
-            save_tasks(tasks)
-            print(f"Задача с ID {task_id} удалена!")
-            return
-    print(f"Задача с ID {task_id} не найдена.")
-
-
-def delete_tasks_category(category):
-    """Удаление задач по категориям."""
-    tasks = load_tasks()
-    filtered_tasks = [task for task in tasks if task['category'] != category]
-    if len(filtered_tasks) < len(tasks):
-        save_tasks(filtered_tasks)
-        print(f"Все задачи в категории '{category}' удалены!")
-    else:
-        print(f"Задачи в категории '{category}' не найдены.")
-
-
-def search_tasks(keyword=None, status=None):
-    """Поиск задач по ключевым словам и статусу."""
-    tasks = load_tasks()
-
-    filtered_tasks = tasks
-    if keyword:
+    def view_tasks_by_category(self, category: str) -> None:
+        """Просмотр задач по категории."""
         filtered_tasks = [
-            task for task in filtered_tasks 
-            if keyword.lower() in task['title'].lower() or keyword.lower() in task['description'].lower()
+            task for task in self.tasks if task.category == category
         ]
-    if status:
-        filtered_tasks = [
-            task for task in filtered_tasks 
-            if task['status'] == status
-        ]
-    if filtered_tasks:
-        for task in filtered_tasks:
-            print(f"ID: {task['id']}, Название: {task['title']}, Статус: {task['status']}")
-    else:
-        print("Задачи по заданным критериям не найдены.")
+        if filtered_tasks:
+            for task in filtered_tasks:
+                print(f"ID: {task.id}, Название: {task.title}, "
+                      f"Статус: {task.status}")
+        else:
+            print(f"Задачи в категории '{category}' не найдены!")
+
+    def edit_tasks(self, task_id: str, new_data: dict) -> None:
+        """Редактирование задачи по ID."""
+        for task in self.tasks:
+            if task.id == task_id:
+                task.update(**new_data)
+                self.save_tasks()
+                print(f"Задача с ID {task_id} обновлена!")
+                return
+        print(f"Задача с ID {task_id} не найдена!")
+
+    def delete_tasks_by_id(self, task_id: str) -> None:
+        """Удаление задачи по ID."""
+        self.tasks = [task for task in self.tasks if task.id != task_id]
+        self.save_tasks()
+        print(f"Задача с ID {task_id} удалена!")
+
+    def delete_tasks_by_category(self, category: str) -> None:
+        """Удаление задач по категории."""
+        initial_count = len(self.tasks)
+        self.tasks = [task for task in self.tasks if task.category != category]
+
+        if len(self.tasks) < initial_count:
+            self.save_tasks()
+            print(f"Все задачи в категории '{category}' удалены!")
+        else:
+            print(f"Задачи в категории '{category}' не найдены.")
+
+    def search_tasks(self, keyword: str = None, status: str = None) -> None:
+        """Поиск задач по ключевым словам и статусу."""
+        filtered_tasks = self.tasks
+        if keyword:
+            filtered_tasks = [
+                task for task in filtered_tasks if keyword.lower()
+                in task.title.lower()
+                or keyword.lower() in task.description.lower()
+            ]
+        if status:
+            filtered_tasks = [
+                task for task in filtered_tasks if task.status == status
+            ]
+
+        if filtered_tasks:
+            for task in filtered_tasks:
+                print(task)
+        else:
+            print("Задачи по заданным критериям не найдены.")
 
 
 if __name__ == "__main__":
+    task_manager = TaskManager()
+
     while True:
         print("\nМеню:")
         print("1. Просмотр всех задач")
@@ -140,37 +171,60 @@ if __name__ == "__main__":
         choice = input("Выберите действие (1-8): ")
 
         if choice == "1":
-            view_tasks()
+            task_manager.view_tasks()
         elif choice == "2":
             category = input("Введите категорию: ")
-            view_tasks_category(category)
+            task_manager.view_tasks_by_category(category)
         elif choice == "3":
             title = input("Введите название задачи: ")
             description = input("Введите описание задачи: ")
             category = input("Введите категорию задачи: ")
             due_date = input("Введите срок выполнения (день-месяц-год): ")
-            priority = input("Введите приоритет задачи (Низкий/Средний/Высокий): ")
-            add_tasks(title, description, category, due_date, priority)
+            priority = input(
+                "Введите приоритет задачи (Низкий/Средний/Высокий): "
+            )
+            task_manager.add_tasks(
+                title,
+                description,
+                category,
+                due_date,
+                priority
+            )
         elif choice == "4":
             task_id = input("Введите ID задачи для редактирования: ")
             new_data = {}
-            new_data['title'] = input("Новое название задачи (оставьте пустым, чтобы не менять): ")
-            new_data['description'] = input("Новое описание задачи (оставьте пустым, чтобы не менять): ")
-            new_data['category'] = input("Новая категория задачи (оставьте пустым, чтобы не менять): ")
-            new_data['due_date'] = input("Новый срок выполнения (оставьте пустым, чтобы не менять): ")
-            new_data['priority'] = input("Новый приоритет задачи (оставьте пустым, чтобы не менять): ")
+            new_data['title'] = input(
+                "Новое название задачи (оставьте пустым, чтобы не менять): "
+                )
+            new_data['description'] = input(
+                "Новое описание задачи (оставьте пустым, чтобы не менять): "
+                )
+            new_data['category'] = input(
+                "Новая категория задачи (оставьте пустым, чтобы не менять): "
+                )
+            new_data['due_date'] = input(
+                "Новый срок выполнения (оставьте пустым, чтобы не менять): "
+                )
+            new_data['priority'] = input(
+                "Новый приоритет задачи (оставьте пустым, чтобы не менять): "
+                )
             new_data = {key: value for key, value in new_data.items() if value}
-            edit_tasks(task_id, new_data)
+            task_manager.edit_tasks(task_id, new_data)
         elif choice == "5":
             task_id = input("Введите ID задачи для удаления: ")
-            delete_tasks_by_id(task_id)
+            task_manager.delete_tasks_by_id(task_id)
         elif choice == "6":
             category = input("Введите категорию задач для удаления: ")
-            delete_tasks_category(category)
+            task_manager.delete_tasks_by_category(category)
         elif choice == "7":
-            keyword = input("Введите ключевое слово для поиска (можно оставить пустым): ")
-            status = input("Введите статус задачи для поиска (оставьте пустым, чтобы не фильтровать): ")
-            search_tasks(keyword, status)
+            keyword = input(
+                "Введите ключевое слово для поиска (можно оставить пустым): "
+                )
+            status = input(
+                "Введите статус задачи для поиска"
+                "(оставьте пустым, чтобы не фильтровать): "
+                )
+            task_manager.search_tasks(keyword, status)
         elif choice == "8":
             print("Выход из программы.")
             break
