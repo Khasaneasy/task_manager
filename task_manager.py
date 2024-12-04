@@ -64,7 +64,7 @@ class TaskManager:
     def load_tasks(self) -> List[Task]:
         """Загрузка всех задач."""
         try:
-            with open(TASK_FILE, 'r') as file:
+            with open(TASK_FILE, 'r', encoding='utf-8') as file:
                 data = json.load(file)
                 return [Task(**task_data) for task_data in data]
         except FileNotFoundError:
@@ -72,8 +72,13 @@ class TaskManager:
 
     def save_tasks(self) -> None:
         """Сохранение задач."""
-        with open(TASK_FILE, 'w') as file:
-            json.dump([task.__dict__ for task in self.tasks], file, indent=4)
+        with open(TASK_FILE, 'w', encoding='utf-8') as file:
+            json.dump(
+                [task.__dict__ for task in self.tasks],
+                file,
+                indent=4,
+                ensure_ascii=False
+            )
 
     def add_tasks(
             self,
